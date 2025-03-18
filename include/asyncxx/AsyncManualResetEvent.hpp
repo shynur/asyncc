@@ -1,7 +1,7 @@
 #include <atomic>
 #include <coroutine>
 
-namespace asyncc {
+namespace asyncxx {
     class AsyncManualResetEvent;
     struct TestAsyncManualResetEvent;
 }
@@ -12,7 +12,7 @@ namespace asyncc {
  *          协程会等待 未完成 的事件, 事件完成时会通知协程恢复执行; 已完成 的事件不会阻塞协程.
  * @note 绝不会抛出异常.  没有堆分配.  无锁实现.
  */
-class [[gnu::weak]] asyncc::AsyncManualResetEvent {
+class [[gnu::weak]] asyncxx::AsyncManualResetEvent {
     friend struct Awaiter;
     mutable std::atomic<void *> queue;
 
@@ -20,14 +20,17 @@ class [[gnu::weak]] asyncc::AsyncManualResetEvent {
     /**
      * @param settled  事件的初始状态.  true/false 表示 已/未 完成.
      */
-    AsyncManualResetEvent(const bool settled = false) noexcept : queue{settled ? this : nullptr} {}
+    AsyncManualResetEvent(const bool settled = false) noexcept
+    : queue{settled ? this : nullptr} {}
     AsyncManualResetEvent(const AsyncManualResetEvent&) = delete;
     AsyncManualResetEvent& operator=(const AsyncManualResetEvent&) = delete;
 
     /**
      * @brief 获知事件的状态: true/false 表示 已/未 完成.
      */
-    bool is_set() const noexcept { return this->queue.load(std::memory_order_acquire) == this; }
+    bool is_set() const noexcept {
+        return this->queue.load(std::memory_order_acquire) == this;
+    }
     /**
      * @brief 重置事件, 使其变为 未完成 的状态.
      * @note 仅当事件 已完成 时有效,
@@ -72,7 +75,13 @@ class [[gnu::weak]] asyncc::AsyncManualResetEvent {
                 if (old_head == &this->event)
                     return false;
                 this->next = (Awaiter *)old_head;
-            } while (!this->event.queue.compare_exchange_weak(old_head, this, std::memory_order_release, std::memory_order_acquire));
+            } while (
+                !this->event.queue.compare_exchange_weak(
+                    old_head, this,
+                    std::memory_order_release,
+                    std::memory_order_acquire
+                )
+            );
             return true;
         }
         void await_resume() noexcept {}
@@ -87,7 +96,7 @@ class [[gnu::weak]] asyncc::AsyncManualResetEvent {
 #include <ranges>
 #include <thread>
 
-struct [[gnu::weak]] asyncc::TestAsyncManualResetEvent {
+struct [[gnu::weak]] asyncxx::TestAsyncManualResetEvent {
     struct Task {
         struct promise_type {
             Task get_return_object() const { return {}; }
@@ -103,10 +112,11 @@ struct [[gnu::weak]] asyncc::TestAsyncManualResetEvent {
     int number, user_input;
 
     /**
+     * @brief 测试函数, 直接调用即可完成测试.
      * @param user_input 用户假设一个最终的计算结果.
      * @param num_consumers  测试的协程的数量.
      */
-    void test(int user_input, unsigned num_consumers) {
+    void test(const int user_input, const unsigned num_consumers) noexcept {
         this->user_input = user_input;
 
         std::println(">>>>>>>>>>> 开始测试: AsyncManualResetEvent >>>>>>>>>>>");
@@ -116,7 +126,7 @@ struct [[gnu::weak]] asyncc::TestAsyncManualResetEvent {
         std::println("<<<<<<<<<<<<<<<<<<<<<<< 测试结束 <<<<<<<<<<<<<<<<<<<<<<");
     }
 
-    void producer() {
+    void producer() noexcept {
         std::println("开始计算, 完成后会把结果放到 number 里");
         std::this_thread::sleep_for(std::chrono::seconds{1}); // 模拟消息的构造过程的耗时
         this->number = this->user_input;
@@ -125,18 +135,9 @@ struct [[gnu::weak]] asyncc::TestAsyncManualResetEvent {
         this->get_number.set();
     }
 
-    Task consumer() const {
+    Task consumer() const noexcept {
         std::println("我要取数字");
         co_await this->get_number; // 等待取数字的事件
         std::println("取到了数字 {}", this->number);
     }
 };
-
-/*
-int main() {
-    asyncc::TestAsyncManualResetEvent{}.test(
-        233,
-        100'0000  // 无栈协程支持百万级并发
-    );
-}
-*/
