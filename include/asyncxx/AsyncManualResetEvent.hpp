@@ -120,25 +120,43 @@ struct [[gnu::weak]] asyncxx::TestAsyncManualResetEvent {
     void test(const int user_input, const unsigned num_consumers) noexcept {
         this->user_input = user_input;
 
+#ifdef ASYNCXX_TEST_LOG
         std::println(">>>>>>>>>>> 开始测试: AsyncManualResetEvent >>>>>>>>>>>");
+#endif
+
         for (auto _ : std::views::iota(0) | std::views::take(num_consumers))
             this->consumer();
         this->producer();
+
+#ifdef ASYNCXX_TEST_LOG
         std::println("<<<<<<<<<<<<<<<<<<<<<<< 测试结束 <<<<<<<<<<<<<<<<<<<<<<");
+#endif
     }
 
     void producer() noexcept {
+#ifdef ASYNCXX_TEST_LOG
         std::println("开始计算, 完成后会把结果放到 number 里");
+#endif
+
         std::this_thread::sleep_for(std::chrono::seconds{1}); // 模拟消息的构造过程的耗时
         this->number = this->user_input;
 
+#ifdef ASYNCXX_TEST_LOG
         std::println("发布消息");
+#endif
+
         this->get_number.set();
     }
 
     Task consumer() const noexcept {
+#ifdef ASYNCXX_TEST_LOG
         std::println("我要取数字");
+#endif
+
         co_await this->get_number; // 等待取数字的事件
+
+#ifdef ASYNCXX_TEST_LOG
         std::println("取到了数字 {}", this->number);
+#endif
     }
 };

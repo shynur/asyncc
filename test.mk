@@ -1,12 +1,14 @@
 #! /bin/make -f
 
 .PHONY: AsyncManualResetEvent
-AsyncManualResetEvent: bin/TestAsyncManualResetEvent.exe
+AsyncManualResetEvent: bin/TestAsyncManualResetEvent.exe | bin/
 	@./$<
 
-bin/%.exe: src/Test%.cpp include/%.hpp
-	@mkdir -p bin
-	clang++-21 -std=c++26 -o $@ -Iinclude $<
+bin/Test%.exe: src/Test%.cpp include/asyncxx/%.hpp | bin/
+	clang++-21 -std=c++26 -Wpedantic -Wall -W -g0 -O3 -o $@ -Iinclude $<
+
+%/:
+	@mkdir -p $@
 
 .PHONY: clean
 clean:
