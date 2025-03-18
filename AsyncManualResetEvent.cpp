@@ -14,7 +14,7 @@ namespace asyncc {
  */
 class [[gnu::weak]] asyncc::AsyncManualResetEvent {
     mutable std::atomic<void *> queue;
-public:
+    public:
     /**
      * @param settled  事件的初始状态.  true/false 表示 已/未 完成.
      */
@@ -54,7 +54,7 @@ public:
         const AsyncManualResetEvent& event;
         std::coroutine_handle<> awaiting;
         Awaiter *next;
-    public:
+        public:
         Awaiter(const AsyncManualResetEvent& event) noexcept: event{event} {}
 
         bool await_ready() const noexcept { return this->event.is_set(); }
@@ -73,7 +73,7 @@ public:
         }
         void await_resume() noexcept {}
     }
-    friend struct Awaiter;
+        friend struct Awaiter;
     Awaiter operator co_await() const noexcept { return {*this}; }
 };
 
@@ -110,11 +110,21 @@ struct [[gnu::weak]] asyncc::TestAsyncManualResetEvent {
         this->event.set();
     }
 
-    task<> consumer() const {
+    Task consumer() const {
         std::println("我要取数字");
         co_await this->get_number;  // 等待取数字的事件
         std::println("取到了数字 {}", this->number);
     }
+
+    struct Task {
+        struct promise_type {
+            Task get_return_object() { return {}; }
+            std::suspend_never initial_suspend() { return {}; }
+            std::suspend_never final_suspend() { return {}; }
+            void return_void() {}
+            void unhandled_exception() {}
+        };
+    };
 };
 
 /*
