@@ -9,7 +9,8 @@ namespace asyncxx {
 /**
  * @brief 异步的 可手动重置的 事件
  * @details 事件有 未完成 和 已完成 两种状态.
- *          协程会等待 未完成 的事件, 事件完成时会通知协程恢复执行; 已完成 的事件不会阻塞协程.
+ *          协程会等待 (co_await) 未完成 的事件, 事件完成时会通知协程恢复执行;
+ *          已完成 的事件不会阻塞协程.
  * @note 绝不会抛出异常.  没有堆分配.  无锁实现.
  */
 class [[gnu::weak]] asyncxx::AsyncManualResetEvent {
