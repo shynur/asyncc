@@ -11,7 +11,7 @@ namespace asyncxx {
  * @details 事件有 未完成 和 已完成 两种状态.
  *          协程会等待 (co_await) 未完成 的事件, 事件完成时会通知协程恢复执行;
  *          已完成 的事件不会阻塞协程.
- * @note 绝不会抛出异常.  没有堆分配.  无锁实现.
+ * @note  绝不会抛出异常.  没有堆分配.  无锁实现.
  */
 class [[gnu::weak]] asyncxx::AsyncManualResetEvent {
     friend struct Awaiter;
@@ -19,10 +19,10 @@ class [[gnu::weak]] asyncxx::AsyncManualResetEvent {
 
   public:
     /**
-     * @param settled  事件的初始状态.  true/false 表示 已/未 完成.
+     * @param  initial_state  事件的初始状态.  true/false 表示 已/未 完成.
      */
-    AsyncManualResetEvent(const bool settled = false) noexcept
-    : queue{settled ? this : nullptr} {}
+    AsyncManualResetEvent(const bool initial_state = false) noexcept
+    : queue{initial_state ? this : nullptr} {}
     AsyncManualResetEvent(const AsyncManualResetEvent&) = delete;
     AsyncManualResetEvent& operator=(const AsyncManualResetEvent&) = delete;
 
