@@ -123,7 +123,7 @@ struct [[gnu::weak]] asyncxx::TestAsyncManualResetEvent {
         std::println(">>>>>>>>>>> 开始测试: AsyncManualResetEvent >>>>>>>>>>>");
 #endif
 
-        for (auto _ : std::views::iota(0, num_consumers))
+        for (auto _ : std::views::iota(0u, num_consumers))
             this->consumer();        // 先启动 消费者, 进行接收数据前的准备工作.
         this->producer(user_input);  // 再启动 生产者, 生产者会 notify 消费者.
 
