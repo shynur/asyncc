@@ -65,7 +65,7 @@ class [[gnu::weak]] asyncxx::AsyncManualResetEvent {
         Awaiter *next;
 
       public:
-        Awaiter(const AsyncManualResetEvent& event) noexcept : event{event} {}
+        Awaiter(const AsyncManualResetEvent& event) noexcept: event{event} {}
 
         bool await_ready() const noexcept { return this->event.is_set(); }
         bool await_suspend(std::coroutine_handle<> coro) noexcept {
@@ -98,6 +98,7 @@ class [[gnu::weak]] asyncxx::AsyncManualResetEvent {
 #include <thread>
 
 struct [[gnu::weak]] asyncxx::TestAsyncManualResetEvent {
+    // 样板代码:
     struct Task {
         struct promise_type {
             Task get_return_object() const { return {}; }
@@ -110,42 +111,40 @@ struct [[gnu::weak]] asyncxx::TestAsyncManualResetEvent {
 
     /*************************** 测试主体 *******************************/
     AsyncManualResetEvent get_number;
-    int number, user_input;
+    int user_input;
 
     /**
      * @brief 测试函数, 直接调用即可完成测试.
-     * @param user_input 用户假设一个最终的计算结果.
+     * @param user_input 用户假设一个最终的 I/O 结果.
      * @param num_consumers  测试的协程的数量.
      */
     void test(const int user_input, const unsigned num_consumers) noexcept {
-        this->user_input = user_input;
-
 #ifdef ASYNCXX_TEST_LOG
         std::println(">>>>>>>>>>> 开始测试: AsyncManualResetEvent >>>>>>>>>>>");
 #endif
 
-        for (auto _ : std::views::iota(0) | std::views::take(num_consumers))
-            this->consumer();
-        this->producer();
+        for (auto _ : std::views::iota(0, num_consumers))
+            this->consumer();        // 先启动 消费者, 进行接收数据前的准备工作.
+        this->producer(user_input);  // 再启动 生产者, 生产者会 notify 消费者.
 
 #ifdef ASYNCXX_TEST_LOG
         std::println("<<<<<<<<<<<<<<<<<<<<<<< 测试结束 <<<<<<<<<<<<<<<<<<<<<<");
 #endif
     }
 
-    void producer() noexcept {
+    void producer(const int user_input) noexcept {
 #ifdef ASYNCXX_TEST_LOG
-        std::println("开始计算, 完成后会把结果放到 number 里");
+        std::println("等待用户输入...");
 #endif
 
-        std::this_thread::sleep_for(std::chrono::seconds{1}); // 模拟消息的构造过程的耗时
-        this->number = this->user_input;
+        std::this_thread::sleep_for(std::chrono::seconds{1}); // 模拟等待 I/O 的耗时
+        this->user_input = user_input;
 
 #ifdef ASYNCXX_TEST_LOG
-        std::println("发布消息");
+        std::println("已取得输入, 准备发布消息");
 #endif
 
-        this->get_number.set();
+        this->get_number.set();  // 将 get_number 事件设为 已完成 的状态.
     }
 
     Task consumer() const noexcept {
@@ -153,10 +152,10 @@ struct [[gnu::weak]] asyncxx::TestAsyncManualResetEvent {
         std::println("我要取数字");
 #endif
 
-        co_await this->get_number; // 等待取数字的事件
+        co_await this->get_number; // 等待 get_number 事件完成
 
 #ifdef ASYNCXX_TEST_LOG
-        std::println("取到了数字 {}", this->number);
+        std::println("取到了数字 {}", this->user_input);
 #endif
     }
 };
