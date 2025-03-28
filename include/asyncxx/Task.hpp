@@ -30,7 +30,7 @@ class Task {
     struct promise_type;
   private:
     std::coroutine_handle<promise_type> coro;
-    explicit Task(std::coroutine_handle<promise_type> handle) noexcept: coro{handle} {
+    explicit Task(const std::coroutine_handle<promise_type> handle) noexcept: coro{handle} {
         auto logger = Logger{__PRETTY_FUNCTION__};
     }
   public:
@@ -65,9 +65,9 @@ class Task {
                     auto logger = Logger{__PRETTY_FUNCTION__};
                     return false;
                 }
-                void await_suspend(std::coroutine_handle<promise_type> handle) noexcept {
+                void await_suspend(const std::coroutine_handle<promise_type> handle) noexcept {
                     auto logger = Logger{__PRETTY_FUNCTION__};
-                    handle.promise().continuation.resume();
+                    handle.promise().continuation();
                 }
                 void await_resume() noexcept {
                     auto logger = Logger{__PRETTY_FUNCTION__};
@@ -80,20 +80,19 @@ class Task {
     auto operator co_await() && noexcept {
         auto logger = Logger{__PRETTY_FUNCTION__};
         class Awaiter {
-            std::coroutine_handle<promise_type> coro;
-            friend Task;
-            explicit Awaiter(std::coroutine_handle<promise_type> handle) noexcept: coro{handle} {
+            const std::coroutine_handle<promise_type> coro;
+          public:
+            explicit Awaiter(const std::coroutine_handle<promise_type> handle) noexcept: coro{handle} {
                 auto logger = Logger{__PRETTY_FUNCTION__};
             }
-          public:
             bool await_ready() noexcept {
                 auto logger = Logger{__PRETTY_FUNCTION__};
                 return false;
             }
-            void await_suspend(std::coroutine_handle<> continuation) noexcept {
+            void await_suspend(const std::coroutine_handle<> continuation) noexcept {
                 auto logger = Logger{__PRETTY_FUNCTION__};
                 this->coro.promise().continuation = continuation;
-                this->coro.resume();
+                this->coro();
             }
             void await_resume() noexcept {
                 auto logger = Logger{__PRETTY_FUNCTION__};
@@ -122,9 +121,7 @@ struct SyncWaitTask {
             return {};
         }
     };
-
     std::coroutine_handle<promise_type> coro;
-
     explicit SyncWaitTask(std::coroutine_handle<promise_type> handle) noexcept: coro(handle) {
         auto logger = Logger{__PRETTY_FUNCTION__};
     }
@@ -170,14 +167,13 @@ struct ManualExecutor {
         while (this->head != nullptr) {
             auto *item = this->head;
             this->head = item->next;
-            item->continuation.resume();
+            item->continuation();
         }
     }
     void sync_wait(Task&& task) {
         auto logger = Logger{__PRETTY_FUNCTION__};
-        auto t = SyncWaitTask::start(std::move(task));
-        while (!t.done()) {
+        auto sync_task = SyncWaitTask::start(std::move(task));
+        while (!sync_task.done())
             this->drain();
-        }
     }
 };
