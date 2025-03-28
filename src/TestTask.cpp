@@ -13,5 +13,5 @@ Task loop_synchronously(const std::size_t count) {
 
 int main() {
     ManualExecutor e;
-    e.sync_wait(loop_synchronously(1111110));
+    e.sync_wait(loop_synchronously(111122110));
 }
