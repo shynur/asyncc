@@ -1,26 +1,11 @@
 #pragma once
+#include <atomic>
 #include <coroutine>
+#include <exception>
 #include <iostream>
-#include <utility>
-#include <type_traits>
 #include <ranges>
-
-struct Logger {
-    const std::string func;
-    inline static unsigned depth = 0;
-    Logger(const std::string func): func{func} {
-        ++std::decay_t<decltype(*this)>::depth;
-        for (auto _ : std::views::iota(0u, std::decay_t<decltype(*this)>::depth))
-            std::cerr << "->";
-        std::cerr << ' ' << func << '\n';
-    }
-    ~Logger() {
-        for (auto _ : std::views::iota(0u, std::decay_t<decltype(*this)>::depth))
-            std::cerr << "<-";
-        std::cerr << ' ' << func << '\n';
-        --std::decay_t<decltype(*this)>::depth;
-    }
-};
+#include <type_traits>
+#include <utility>
 
 /**
  * @note 拥有 coroutine 所有权的 RAII 类.
@@ -30,73 +15,53 @@ class Task {
     struct promise_type;
   private:
     std::coroutine_handle<promise_type> coro;
-    explicit Task(const std::coroutine_handle<promise_type> handle) noexcept: coro{handle} {
-        auto logger = Logger{__PRETTY_FUNCTION__};
-    }
+    explicit Task(
+        const std::coroutine_handle<promise_type> handle
+    ) noexcept: coro{handle} {}
   public:
-    Task(Task&& task) noexcept: coro{std::exchange(task.coro, {})} {
-        auto logger = Logger{__PRETTY_FUNCTION__};
-    }
+    Task(Task&& task) noexcept: coro{std::exchange(task.coro, {})} {}
     ~Task() {
-        auto logger = Logger{__PRETTY_FUNCTION__};
         if (this->coro)
             this->coro.destroy();
     }
 
     struct promise_type {
         std::coroutine_handle<> continuation;
+        std::atomic_flag        continuation_ready = false;
 
         Task get_return_object() noexcept {
-            auto logger = Logger{__PRETTY_FUNCTION__};
             return Task{std::coroutine_handle<promise_type>::from_promise(*this)};
         }
-        auto initial_suspend() noexcept -> std::suspend_always {
-            auto logger = Logger{__PRETTY_FUNCTION__};
-            return {};
-        }
-        void return_void() noexcept {
-            auto logger = Logger{__PRETTY_FUNCTION__};
-        }
-        void unhandled_exception() noexcept { throw; }
+        auto initial_suspend() noexcept -> std::suspend_always { return {}; }
+        void return_void() noexcept {}
+        void unhandled_exception() noexcept { std::terminate(); }
         auto final_suspend() noexcept {
-            auto logger = Logger{__PRETTY_FUNCTION__};
             struct FinalAwaiter {
-                bool await_ready() noexcept {
-                    auto logger = Logger{__PRETTY_FUNCTION__};
-                    return false;
+                bool await_ready() noexcept { return false; }
+                auto await_suspend(const std::coroutine_handle<promise_type> handle) noexcept
+                    -> std::coroutine_handle<> {
+                    return handle.promise().continuation;
                 }
-                void await_suspend(const std::coroutine_handle<promise_type> handle) noexcept {
-                    auto logger = Logger{__PRETTY_FUNCTION__};
-                    handle.promise().continuation();
-                }
-                void await_resume() noexcept {
-                    auto logger = Logger{__PRETTY_FUNCTION__};
-                }
+                void await_resume() noexcept {}
             };
             return FinalAwaiter{};
         }
     };
 
     auto operator co_await() && noexcept {
-        auto logger = Logger{__PRETTY_FUNCTION__};
         class Awaiter {
             const std::coroutine_handle<promise_type> coro;
           public:
-            explicit Awaiter(const std::coroutine_handle<promise_type> handle) noexcept: coro{handle} {
-                auto logger = Logger{__PRETTY_FUNCTION__};
-            }
-            bool await_ready() noexcept {
-                auto logger = Logger{__PRETTY_FUNCTION__};
-                return false;
-            }
-            void await_suspend(const std::coroutine_handle<> continuation) noexcept {
-                auto logger = Logger{__PRETTY_FUNCTION__};
+            explicit Awaiter(
+                const std::coroutine_handle<promise_type> handle
+            ) noexcept: coro{handle} {}
+            bool await_ready() noexcept { return false; }
+            auto await_suspend(const std::coroutine_handle<> continuation) noexcept
+                -> std::coroutine_handle<> {
                 this->coro.promise().continuation = continuation;
-                this->coro();
+                return this->coro;
             }
-            void await_resume() noexcept {
-                auto logger = Logger{__PRETTY_FUNCTION__};
-            }
+            void await_resume() noexcept {}
         };
         return Awaiter{this->coro};
     }
@@ -105,43 +70,29 @@ class Task {
 struct SyncWaitTask {
     struct promise_type {
         SyncWaitTask get_return_object() noexcept {
-            auto logger = Logger{__PRETTY_FUNCTION__};
-            return SyncWaitTask{std::coroutine_handle<promise_type>::from_promise(*this)};
+            return SyncWaitTask{
+                std::coroutine_handle<promise_type>::from_promise(*this)
+            };
         }
-        auto initial_suspend() noexcept -> std::suspend_never {
-            auto logger = Logger{__PRETTY_FUNCTION__};
-            return {};
-        }
-        void return_void() noexcept {
-            auto logger = Logger{__PRETTY_FUNCTION__};
-        }
-        void unhandled_exception() noexcept { throw; }
-        auto final_suspend() noexcept -> std::suspend_always {
-            auto logger = Logger{__PRETTY_FUNCTION__};
-            return {};
-        }
+        auto initial_suspend() noexcept -> std::suspend_never { return {}; }
+        void return_void() noexcept {}
+        void unhandled_exception() noexcept { std::terminate(); }
+        auto final_suspend() noexcept -> std::suspend_always { return {}; }
     };
     std::coroutine_handle<promise_type> coro;
-    explicit SyncWaitTask(std::coroutine_handle<promise_type> handle) noexcept: coro(handle) {
-        auto logger = Logger{__PRETTY_FUNCTION__};
-    }
-    SyncWaitTask(SyncWaitTask&& task) noexcept: coro{std::exchange(task.coro, {})} {
-        auto logger = Logger{__PRETTY_FUNCTION__};
-    }
+    explicit SyncWaitTask(
+        std::coroutine_handle<promise_type> handle
+    ) noexcept: coro(handle) {}
+    SyncWaitTask(SyncWaitTask&& task) noexcept: coro{std::exchange(task.coro, {})} {}
     ~SyncWaitTask() {
-        auto logger = Logger{__PRETTY_FUNCTION__};
         if (this->coro)
             this->coro.destroy();
     }
 
     static auto start(Task&& task) -> SyncWaitTask {
-        auto logger = Logger{__PRETTY_FUNCTION__};
         co_await std::move(task);
     }
-    bool done() {
-        auto logger = Logger{__PRETTY_FUNCTION__};
-        return this->coro.done();
-    }
+    bool done() { return this->coro.done(); }
 };
 
 struct ManualExecutor {
@@ -149,7 +100,7 @@ struct ManualExecutor {
         ManualExecutor&         executor;
         ScheduleOp             *next = nullptr;
         std::coroutine_handle<> continuation;
-        ScheduleOp(ManualExecutor& executor): executor(executor) {}
+        ScheduleOp(ManualExecutor& executor): executor{executor} {}
         bool await_ready() noexcept { return false; }
         void await_suspend(std::coroutine_handle<> continuation) noexcept {
             this->continuation  = continuation;
@@ -159,19 +110,17 @@ struct ManualExecutor {
         void await_resume() noexcept {}
     };
     ScheduleOp *head = nullptr;
-    ScheduleOp schedule() noexcept {
-        return ScheduleOp{*this};
+    auto        schedule() noexcept -> ScheduleOp {
+        return {*this};
     }
     void drain() {
-        auto logger = Logger{__PRETTY_FUNCTION__};
-        while (this->head != nullptr) {
+        while (this->head) {
             auto *item = this->head;
             this->head = item->next;
             item->continuation();
         }
     }
     void sync_wait(Task&& task) {
-        auto logger = Logger{__PRETTY_FUNCTION__};
         auto sync_task = SyncWaitTask::start(std::move(task));
         while (!sync_task.done())
             this->drain();
