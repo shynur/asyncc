@@ -8,5 +8,13 @@
     "files.encoding": "utf8",
     "C_Cpp.debugShortcut": false,
     "C_Cpp.autoAddFileAssociations": false,
-    "C_Cpp.caseSensitiveFileSupport": "enabled"
+    "C_Cpp.caseSensitiveFileSupport": "enabled",
+    "C_Cpp.files.exclude": {
+        "/usr/include/c++/14": true,
+        "/usr/local/include/c++/14": true,
+        "/usr/include/c++/13": true,
+        "/usr/include/c++/12": true,
+        "/usr/include/c++/11": true,
+        "/usr/include/c++/10": true
+    }
 }

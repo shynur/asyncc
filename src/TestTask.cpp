@@ -1,5 +1,6 @@
 #include "asyncxx/Task.hpp"
 #include <iostream>
+#include <coroutine>
 
 Task f() {
     std::cout << 'A' << '\n';

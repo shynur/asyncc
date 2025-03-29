@@ -8,8 +8,9 @@
             "defines": [],
             "compilerPath": "/usr/bin/clang++-21",
             "cppStandard": "c++23",
-            "intelliSenseMode": "gcc-x64",
+            "intelliSenseMode": "linux-clang-x64",
             "compilerArgs": [
+                "--gcc-install-dir=/usr/local/lib/gcc/x86_64-pc-linux-gnu/15.0.1",
                 "-std=c++26",
                 "-Wpedantic",
                 "-Wall",
