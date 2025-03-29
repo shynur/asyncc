@@ -1,14 +1,17 @@
 #include "asyncxx/Task.hpp"
-#include <iostream>
+#include "asyncxx/Trivial.hpp"
 #include <coroutine>
+#include <iostream>
 
 Task f() {
     std::cout << 'A' << '\n';
+    co_await std::suspend_always{};
+    std::cout << 'B' << '\n';
     co_return;
 }
 
 int main() {
-    [] -> T {
+    auto cor = [] -> TrivialTask {
         std::cout << 1 << '\n';
         auto t = f();
         std::cout << 2 << '\n';
@@ -19,4 +22,6 @@ int main() {
         co_await std::move(t);
         std::cout << 5 << '\n';
     }();
+    while (!cor.done())
+        cor.resume();
 }

@@ -62,13 +62,3 @@ struct Task: std::coroutine_handle<> {
         return Awaiter{*this};
     }
 };
-
-struct T {
-    struct promise_type {
-        T get_return_object() { return {}; }
-        std::suspend_never initial_suspend() { return {}; }
-        void return_void() {}
-        void unhandled_exception() { throw; }
-        std::suspend_never final_suspend() noexcept { return {}; }
-    };
-};
