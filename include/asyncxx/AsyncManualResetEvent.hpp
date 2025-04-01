@@ -1,4 +1,6 @@
-/**
+/*
+ * 实现思路参考自 <https://github.com/lewissbaker/lewissbaker.github.io> 上发表的文章.
+ *
  * Copyright 2017 Lewis Baker, 2025 谢骐 <shynur@outlook.com>.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
