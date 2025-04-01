@@ -11,7 +11,7 @@
 
 [`src`](src) 目录下每份 CPP 文件都是 `TestXXX.cpp` 的格式, 其中 `XXX` 是组件名.
 
-要测试, 例如, 组件 `AsyncManualResetEvent`, 只需运行:
+要测试某组件, 例如 `AsyncManualResetEvent`, 只需运行:
 
 ```bash
 ./test.mk AsyncManualResetEvent

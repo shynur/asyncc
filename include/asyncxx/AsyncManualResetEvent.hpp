@@ -1,11 +1,30 @@
+/**
+ * Copyright 2017 Lewis Baker, 2025 谢骐 <shynur@outlook.com>.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is furnished
+ * to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #pragma once
 #include <atomic>
 #include <coroutine>
 
-namespace asyncxx {
-    class AsyncManualResetEvent;
-    struct TestAsyncManualResetEvent;
-}
+namespace asyncxx { class AsyncManualResetEvent; }
 
 /**
  * @brief 异步的 可手动重置的 事件
@@ -89,74 +108,4 @@ class [[gnu::weak]] asyncxx::AsyncManualResetEvent {
         void await_resume() noexcept {}
     };
     Awaiter operator co_await() const noexcept { return {*this}; }
-};
-
-/********************************* 用法示例 **********************************/
-
-#include <chrono>
-#include <print>
-#include <ranges>
-#include <thread>
-
-struct [[gnu::weak]] asyncxx::TestAsyncManualResetEvent {
-    // 样板代码:
-    struct Task {
-        struct promise_type {
-            Task get_return_object() const { return {}; }
-            std::suspend_never initial_suspend() const { return {}; }
-            std::suspend_never final_suspend() const noexcept { return {}; }
-            void return_void() const {}
-            void unhandled_exception() const {}
-        };
-    };
-
-    /*************************** 测试主体 *******************************/
-    AsyncManualResetEvent get_number;
-    int user_input;
-
-    /**
-     * @brief 测试函数, 直接调用即可完成测试.
-     * @param user_input 用户假设一个最终的 I/O 结果.
-     * @param num_consumers  测试的协程的数量.
-     */
-    void test(const int user_input, const unsigned num_consumers) noexcept {
-#ifdef ASYNCXX_TEST_LOG
-        std::println(">>>>>>>>>>> 开始测试: AsyncManualResetEvent >>>>>>>>>>>");
-#endif
-
-        for (auto _ : std::views::iota(0u, num_consumers))
-            this->consumer();        // 先启动 消费者, 进行接收数据前的准备工作.
-        this->producer(user_input);  // 再启动 生产者, 生产者会 notify 消费者.
-
-#ifdef ASYNCXX_TEST_LOG
-        std::println("<<<<<<<<<<<<<<<<<<<<<<< 测试结束 <<<<<<<<<<<<<<<<<<<<<<");
-#endif
-    }
-
-    void producer(const int user_input) noexcept {
-#ifdef ASYNCXX_TEST_LOG
-        std::println("等待用户输入...");
-#endif
-
-        std::this_thread::sleep_for(std::chrono::seconds{1}); // 模拟等待 I/O 的耗时
-        this->user_input = user_input;
-
-#ifdef ASYNCXX_TEST_LOG
-        std::println("已取得输入, 准备发布消息");
-#endif
-
-        this->get_number.set();  // 将 get_number 事件设为 已完成 的状态.
-    }
-
-    Task consumer() const noexcept {
-#ifdef ASYNCXX_TEST_LOG
-        std::println("我要取数字");
-#endif
-
-        co_await this->get_number; // 等待 get_number 事件完成
-
-#ifdef ASYNCXX_TEST_LOG
-        std::println("取到了数字 {}", this->user_input);
-#endif
-    }
 };

@@ -1,30 +1,45 @@
+/**
+ * Author: 谢骐 <shynur@outlook.com>.
+ */
+
 #pragma once
 #include <coroutine>
 #include <type_traits>
+#include <utility>
 
 namespace asyncxx {
-    namespace __detail {
-        template <typename Ret>
-        struct SyncTask;
-    }
-    template <typename Ret>
+    template <typename Ret> requires (!std::is_void_v<Ret>)
     struct SyncTask;
 }
 
-template <typename Ret>
-struct asyncxx::__detail::SyncTask {
+/**
+ * @brief 将普通函数直接改写为协程.
+ * @tparam Ret 返回值类型
+ * @example
+ * ```
+ * int f() { return 42; }
+ * ```
+ * 可以改写为:
+ * ```
+ * asyncxx::SyncTask<int> g() { co_return 42; }
+ * ```
+ */
+template <typename Ret> requires (!std::is_void_v<Ret>)
+struct asyncxx::SyncTask {
     struct promise_type {
-        auto get_return_object() -> SyncTask {
-            return {std::coroutine_handle<promise_type>::from_promise(*this)};
+        auto get_return_object() -> asyncxx::SyncTask<Ret> {
+            return {
+                std::coroutine_handle<promise_type>::from_promise(*this)
+            };
         }
         auto initial_suspend() -> std::suspend_never { return {}; }
+        void return_value(Ret&& val) {  // TODO: 针对任何 Ret 都可以这样写吗?
+            this->ret = new RetBox{std::forward<Ret>(val)};
+        }
         void unhandled_exception() { throw; }
         auto final_suspend() noexcept -> std::suspend_always { return {}; }
 
-        struct RetBox {
-            Ret value;
-            RetBox(Ret val): value{val} {}
-        } *ret = nullptr;
+        struct RetBox {Ret value;} *ret = nullptr;
         ~promise_type() {
             if (this->ret)
                 delete this->ret;
@@ -35,19 +50,5 @@ struct asyncxx::__detail::SyncTask {
     SyncTask(const std::coroutine_handle<promise_type> handle): cor(handle) {}
     ~SyncTask() { this->cor.destroy(); }
 
-    operator Ret() {
-        return this->cor.promise().ret->value;
-    }
-};
-
-template <typename Ret>
-struct asyncxx::SyncTask: asyncxx::__detail::SyncTask<Ret> {
-    void return_value(Ret val) {
-        this->ret = new RetBox{val};
-    }
-};
-
-template <>
-struct asyncxx::SyncTask<void>: asyncxx::__detail::SyncTask<void> {
-    void return_void() {}
+    operator Ret() { return this->cor.promise().ret->value; }
 };
