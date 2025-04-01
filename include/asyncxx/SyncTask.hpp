@@ -14,7 +14,7 @@ namespace asyncxx {
 
 /**
  * @brief 将普通函数直接改写为协程.
- * @tparam Ret 返回值类型
+ * @tparam Ret 返回值类型, 不可以是 void.
  * @example
  * ```
  * int f() { return 42; }
