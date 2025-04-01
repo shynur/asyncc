@@ -25,8 +25,10 @@
 #pragma once
 #include <atomic>
 #include <coroutine>
+#include <memory>
+#include <utility>
 
-namespace asyncxx { class AsyncManualResetEvent; }
+namespace asyncxx { template <typename> class AsyncManualResetEvent; }
 
 /**
  * @brief 异步的 可手动重置的 事件
@@ -34,10 +36,17 @@ namespace asyncxx { class AsyncManualResetEvent; }
  *          协程会等待 (co_await) 未完成 的事件, 事件完成时会通知协程恢复执行;
  *          已完成 的事件不会阻塞协程.
  * @note  绝不会抛出异常.  没有堆分配.  无锁实现.
+ * @tparam Value 与事件关联的元素的类型, 作为 co_await 的返回值.  可以是 void.
  */
+template <typename Value>
 class [[gnu::weak]] asyncxx::AsyncManualResetEvent {
-    friend struct Awaiter;
+    friend class Awaiter;
     mutable std::atomic<void *> queue;
+
+    struct ValueBox{
+        std::conditional_t<std::is_void_v<Value>, int, Value> value;
+    };
+    std::unique_ptr<ValueBox> value = nullptr;
 
   public:
     /**
@@ -79,9 +88,16 @@ class [[gnu::weak]] asyncxx::AsyncManualResetEvent {
             awaiter = next;
         }
     }
+    /**
+     * @brief 类似于 set(), 但可以传递值给 co_awaiting 的协程.
+     */
+    void set(auto&& value) noexcept requires(!std::is_void_v<Value>) {
+        this->value = std::make_unique<ValueBox>(std::forward<decltype(value)>(value));
+        this->set();
+    }
 
     class Awaiter {
-        friend class AsyncManualResetEvent;
+        friend AsyncManualResetEvent;
         const AsyncManualResetEvent& event;
         std::coroutine_handle<> coro;
         Awaiter *next;
@@ -107,7 +123,10 @@ class [[gnu::weak]] asyncxx::AsyncManualResetEvent {
             );
             return true;
         }
-        void await_resume() noexcept {}
+        Value await_resume() noexcept {
+            if constexpr (!std::is_void_v<Value>)
+                return this->event.value->value;
+        }
     };
     Awaiter operator co_await() const noexcept { return {*this}; }
 };
