@@ -1,6 +1,6 @@
 /**
  * @brief 将 main 函数改写为协程.
- * @note C++ 规定 main 必须是普通函数, 所以在此我们额外写了一个函数 async_main.
+ * @note C++ 规定 main 必须是普通函数, 所以在此我们额外写一个 cor_main 函数.
  */
 
 #include "asyncxx/SyncTask.hpp"
