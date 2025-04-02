@@ -1,7 +1,3 @@
-/**
- * Author: 谢骐 <shynur@outlook.com>.
- */
-
 #pragma once
 #include <coroutine>
 #include <type_traits>
