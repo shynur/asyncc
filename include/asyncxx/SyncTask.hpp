@@ -34,16 +34,15 @@ struct asyncxx::SyncTask {
         }
         auto initial_suspend() -> std::suspend_never { return {}; }
         void return_value(Ret&& val) {  // TODO: 针对任何 Ret 都可以这样写吗?
-            this->ret = new RetBox{std::forward<Ret>(val)};
+            this->ret = new std::decay_t<decltype(*this->ret)>{
+                std::forward<Ret>(val)
+            };
         }
         void unhandled_exception() { throw; }
         auto final_suspend() noexcept -> std::suspend_always { return {}; }
 
-        struct RetBox {Ret value;} *ret = nullptr;
-        ~promise_type() {
-            if (this->ret)
-                delete this->ret;
-        }
+        struct {Ret value;} *ret = nullptr;
+        ~promise_type() { delete this->ret; }
     };
 
     std::coroutine_handle<promise_type> cor;
