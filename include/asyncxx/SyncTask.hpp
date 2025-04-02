@@ -33,9 +33,11 @@ struct asyncxx::SyncTask {
             };
         }
         auto initial_suspend() -> std::suspend_never { return {}; }
-        void return_value(Ret&& val) {  // TODO: 针对任何 Ret 都可以这样写吗?
+        void return_value(
+            std::convertible_to<Ret> auto&& val  // 模仿 <https://itnext.io/daily-bit-e-of-c-coroutines-step-by-step-e726b976d239>
+        ) {
             this->ret = new std::decay_t<decltype(*this->ret)>{
-                std::forward<Ret>(val)
+                std::forward<decltype(val)>(val)
             };
         }
         void unhandled_exception() { throw; }

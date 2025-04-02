@@ -26,6 +26,7 @@
 #include <atomic>
 #include <coroutine>
 #include <memory>
+#include <concepts>
 #include <utility>
 
 namespace asyncxx { template <typename> class AsyncManualResetEvent; }
@@ -91,7 +92,7 @@ class [[gnu::weak]] asyncxx::AsyncManualResetEvent {
     /**
      * @brief 类似于 set(), 但可以传递值给 co_awaiting 的协程.
      */
-    void set(auto&& value) noexcept requires(!std::is_void_v<Value>) {
+    void set(std::convertible_to<Value> auto&& value) noexcept requires(!std::is_void_v<Value>) {
         this->value = std::make_unique<ValueBox>(std::forward<decltype(value)>(value));
         this->set();
     }
