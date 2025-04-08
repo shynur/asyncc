@@ -1,7 +1,7 @@
 #pragma once
 #include <coroutine>
 #include <list>
-#include <atomic>
+#include <mutex>
 
 namespace asyncxx { struct Scheduler; }
 
@@ -21,14 +21,10 @@ struct [[gnu::weak]] asyncxx::Scheduler {
             auto get_return_object() {
                 return std::coroutine_handle<promise_type>::from_promise(*this);
             }
-            auto initial_suspend() const -> std::suspend_always {
-                return {};
-            }
+            auto initial_suspend() const -> std::suspend_always { return {}; }
             void return_void() const {}
             void unhandled_exception() const { throw; }
-            auto final_suspend() const noexcept -> std::suspend_always {
-                return {};
-            }
+            auto final_suspend() const noexcept -> std::suspend_always { return {}; }
         };
     };
 
@@ -37,10 +33,8 @@ struct [[gnu::weak]] asyncxx::Scheduler {
      * @param task 要加入的任务.
      */
     void enqueue(const auto task) {
-        while (this->cors_m.test_and_set(std::memory_order_acquire))
-            continue;
+        const auto _ = std::lock_guard{this->cors_lock};
         this->cors.push_back(task);
-        this->cors_m.clear(std::memory_order_release);
     }
 
     /**
@@ -48,19 +42,15 @@ struct [[gnu::weak]] asyncxx::Scheduler {
      * @note 该方法未必要在单独的线程中运行.
      */
     void run() {
-        while (!this->cors.empty()) {
+        while (true) {
             std::coroutine_handle<> active;
-            if (std::size(this->cors) == 1) {
-                while (this->cors_m.test_and_set(std::memory_order_acquire))
-                    continue;
+            {
+                const auto _ = std::lock_guard{this->cors_lock};
+                if (this->cors.empty())
+                    break;
                 active = this->cors.front();
-            } else {
-                active = this->cors.front();
-                while (this->cors_m.test_and_set(std::memory_order_acquire))
-                    continue;
+                this->cors.pop_front();
             }
-            this->cors.pop_front();
-            this->cors_m.clear(std::memory_order_release);
 
             active.resume();
 
@@ -84,11 +74,10 @@ struct [[gnu::weak]] asyncxx::Scheduler {
     }
 
     ~Scheduler() {
-        for (auto cor : this->cors) {
+        for (auto cor : this->cors)
             cor.destroy();
-        }
     }
   private:
     std::list<std::coroutine_handle<>> cors;
-    std::atomic_flag cors_m = ATOMIC_FLAG_INIT;
+    std::mutex cors_lock;
 };
